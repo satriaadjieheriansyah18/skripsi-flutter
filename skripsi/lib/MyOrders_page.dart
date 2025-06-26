@@ -31,7 +31,7 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
     }
 
     final response = await http
-        .get(Uri.parse('http://10.205.94.82:8000/api/orders?user_id=$userId'));
+        .get(Uri.parse('http://10.178.180.83:8000/api/orders?user_id=$userId'));
 
     if (response.statusCode == 200) {
       List<dynamic> data = jsonDecode(response.body);

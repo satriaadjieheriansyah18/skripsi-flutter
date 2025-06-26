@@ -193,7 +193,7 @@ class _PaymentPageState extends State<PaymentPage> {
     var request = http.MultipartRequest(
         'POST',
         Uri.parse(
-            'http://10.205.94.82:8000/api/orders')); // Sesuaikan dengan URL API Anda
+            'http://10.178.180.83:8000/api/orders')); // Sesuaikan dengan URL API Anda
 
     // Menambahkan data ke dalam request.fields satu per satu
     request.fields['nama'] = requestBody['nama'] as String;
