@@ -29,7 +29,10 @@ class _HomePageState extends State<HomePage> {
       Navigator.push(
           context,
           MaterialPageRoute(
-              builder: (context) => const PaymentPage(total: 12000)));
+              builder: (context) => const PaymentPage(
+                    total: 12000,
+                    mapLink: '',
+                  )));
     } else if (index == 3) {
       Navigator.push(context,
           MaterialPageRoute(builder: (context) => const MyOrdersPage()));

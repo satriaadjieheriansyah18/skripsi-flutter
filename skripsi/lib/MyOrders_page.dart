@@ -30,8 +30,8 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
       return;
     }
 
-    final response = await http
-        .get(Uri.parse('http://10.178.180.83:8000/api/orders?user_id=$userId'));
+    final response = await http.get(
+        Uri.parse('http://192.168.228.82:8000/api/orders?user_id=$userId'));
 
     if (response.statusCode == 200) {
       List<dynamic> data = jsonDecode(response.body);
@@ -209,6 +209,7 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
               MaterialPageRoute(
                   builder: (context) => const PaymentPage(
                         total: 12000,
+                        mapLink: '',
                       )),
             );
           }

@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:skripsi/MyOrders_page.dart';
 import 'package:skripsi/awal_page.dart';
 import 'package:skripsi/home_page.dart';
+import 'package:skripsi/osm_map_picker_page.dart';
 import 'package:skripsi/payment_page.dart';
 import 'package:skripsi/profile_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
+import 'package:latlong2/latlong.dart';
 
 class CartPage extends StatefulWidget {
   const CartPage({super.key});
@@ -14,6 +17,11 @@ class CartPage extends StatefulWidget {
 }
 
 class _CartPageState extends State<CartPage> {
+  LatLng? selectedLocation;
+  String? mapLink;
+
+  List<Map<String, String>> savedAddresses = [];
+  bool saveAddressChecked = false;
   int quantity = 1;
   final TextEditingController nameController = TextEditingController();
   final TextEditingController phoneController = TextEditingController();
@@ -52,7 +60,114 @@ class _CartPageState extends State<CartPage> {
     await prefs.setString('cart_name', nameController.text.trim());
     await prefs.setString('cart_phone', phoneController.text.trim());
     await prefs.setString('cart_address', addressController.text.trim());
-    await prefs.setString('cart_maps', mapLinkController.text.trim());
+    await prefs.setString('cart_maps', mapLink!);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    loadSavedAddresses();
+  }
+
+  Future<void> loadSavedAddresses() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    final List<String> savedList = prefs.getStringList('saved_addresses') ?? [];
+    setState(() {
+      savedAddresses = savedList
+          .map((item) => Map<String, String>.from(jsonDecode(item)))
+          .toList();
+    });
+  }
+
+  Future<void> saveCurrentAddress() async {
+    if (addressController.text.isEmpty || mapLink == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Isi alamat lengkap dan pilih lokasi terlebih dahulu"),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    final newEntry = {
+      'address': addressController.text.trim(),
+      'phone': phoneController.text.trim(),
+      'mapLink': mapLink!,
+    };
+
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    final List<String> savedList = prefs.getStringList('saved_addresses') ?? [];
+
+    // Cek duplikat berdasarkan link lokasi
+    final exists = savedList.any((item) {
+      final decoded = jsonDecode(item);
+      return decoded['mapLink'] == newEntry['mapLink'];
+    });
+
+    if (exists) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Alamat ini sudah pernah disimpan sebelumnya."),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    savedList.add(jsonEncode(newEntry));
+    await prefs.setStringList('saved_addresses', savedList);
+    await loadSavedAddresses();
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Alamat berhasil disimpan.'),
+        backgroundColor: Colors.green,
+      ),
+    );
+  }
+
+  Future<void> _deleteAddress(Map<String, String> addressToDelete) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    final List<String> savedList = prefs.getStringList('saved_addresses') ?? [];
+
+    savedList.removeWhere((item) {
+      final decoded = Map<String, dynamic>.from(jsonDecode(item));
+      return decoded['address'] == addressToDelete['address'] &&
+          decoded['maps'] == addressToDelete['maps'];
+    });
+
+    await prefs.setStringList('saved_addresses', savedList);
+    loadSavedAddresses(); // refresh
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Alamat berhasil dihapus')),
+    );
+  }
+
+  void _confirmDelete(Map<String, String> addressToDelete) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Hapus Alamat"),
+        content: const Text("Apakah Anda yakin ingin menghapus alamat ini?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context), // Tidak
+            child: const Text("Tidak"),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context); // Tutup dialog
+              _deleteAddress(addressToDelete); // Hapus
+            },
+            child: const Text(
+              "Ya",
+              style: TextStyle(color: Colors.red),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -168,8 +283,136 @@ class _CartPageState extends State<CartPage> {
               inputField("NAMA", nameController),
               inputField("NO TELP", phoneController,
                   keyboardType: TextInputType.phone),
+              if (savedAddresses.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  child: ExpansionTile(
+                    title: const Text("Pilih dari alamat yang tersimpan"),
+                    children: savedAddresses.map((item) {
+                      return Container(
+                        margin: const EdgeInsets.symmetric(vertical: 8),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF2F7FC),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                              color: Colors.blueAccent.withOpacity(0.5)),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.grey.withOpacity(0.1),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: ListTile(
+                          leading:
+                              const Icon(Icons.location_on, color: Colors.blue),
+                          title: Text(
+                            item['address'] ?? '',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                          subtitle: Text(
+                            item['mapLink'] ?? '',
+                            style: const TextStyle(
+                                fontSize: 13, color: Colors.black87),
+                          ),
+                          trailing: IconButton(
+                            icon: const Icon(Icons.delete, color: Colors.red),
+                            onPressed: () => _confirmDelete(item),
+                          ),
+                          onTap: () {
+                            setState(() {
+                              addressController.text = item['address'] ?? '';
+                              mapLink = item['maps'] ?? '';
+                              mapLink = item['mapLink'];
+                            });
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                  content: Text("Alamat otomatis dimasukkan")),
+                            );
+                          },
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
               inputField("ALAMAT LENGKAP", addressController),
-              inputField("LINK MAPS ALAMAT", mapLinkController),
+              ElevatedButton.icon(
+                icon: const Icon(Icons.map),
+                label: const Text("Pilih Lokasi di Peta"),
+                onPressed: () async {
+                  final result = await Navigator.push<LatLng>(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          OSMMapPickerPage(initialPos: selectedLocation),
+                    ),
+                  );
+
+                  if (result != null) {
+                    setState(() {
+                      selectedLocation = result;
+                      mapLink =
+                          'https://maps.google.com/?q=${result.latitude},${result.longitude}';
+                    });
+                  }
+                },
+              ),
+              if (mapLink != null)
+                Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      border: Border.all(color: Colors.grey),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      "Link Maps:\n$mapLink",
+                      style: const TextStyle(fontStyle: FontStyle.italic),
+                    ),
+                  ),
+                ),
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8),
+                child: Row(
+                  children: [
+                    Checkbox(
+                      value: saveAddressChecked,
+                      onChanged: (value) {
+                        setState(() {
+                          saveAddressChecked = value ?? false;
+                        });
+                      },
+                    ),
+                    const Expanded(
+                        child:
+                            Text("Simpan alamat ini untuk digunakan kembali")),
+                  ],
+                ),
+              ),
+              if (saveAddressChecked)
+                Center(
+                  child: ElevatedButton.icon(
+                    icon: const Icon(Icons.save),
+                    label: const Text("Simpan Alamat Otomatis"),
+                    onPressed: saveCurrentAddress,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 20, vertical: 10),
+                    ),
+                  ),
+                ),
               const SizedBox(height: 20),
               Center(
                 child: ElevatedButton(
@@ -213,7 +456,10 @@ class _CartPageState extends State<CartPage> {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => PaymentPage(total: quantity * 12000),
+                builder: (context) => PaymentPage(
+                  total: quantity * 12000,
+                  mapLink: mapLink ?? '',
+                ),
               ),
             );
           } else if (index == 3) {
@@ -266,7 +512,8 @@ class _CartPageState extends State<CartPage> {
     if (nameController.text.isEmpty ||
         phoneController.text.isEmpty ||
         addressController.text.isEmpty ||
-        mapLinkController.text.isEmpty) {
+        mapLink == null ||
+        mapLink!.isEmpty) {
       // Menampilkan pesan peringatan jika ada field yang kosong
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -344,8 +591,10 @@ class _CartPageState extends State<CartPage> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) =>
-                                  PaymentPage(total: quantity * 12000),
+                              builder: (context) => PaymentPage(
+                                total: quantity * 12000,
+                                mapLink: mapLink!,
+                              ),
                             ),
                           );
                           // Lanjutkan ke logika pembayaran

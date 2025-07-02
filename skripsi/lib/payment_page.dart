@@ -11,8 +11,9 @@ import 'package:http_parser/http_parser.dart';
 
 class PaymentPage extends StatefulWidget {
   final int total;
+  final String mapLink;
 
-  const PaymentPage({super.key, required this.total});
+  const PaymentPage({super.key, required this.total, required this.mapLink});
 
   @override
   State<PaymentPage> createState() => _PaymentPageState();
@@ -21,7 +22,7 @@ class PaymentPage extends StatefulWidget {
 class _PaymentPageState extends State<PaymentPage> {
   String? selectedMethod;
   String? selectedBankOrWallet;
-  String? name, phone, address, maps;
+  String? name, phone, address;
   File? proofImage; // Menyimpan gambar bukti transfer yang dipilih
 
   final ImagePicker _picker = ImagePicker();
@@ -38,7 +39,6 @@ class _PaymentPageState extends State<PaymentPage> {
       name = prefs.getString('cart_name');
       phone = prefs.getString('cart_phone');
       address = prefs.getString('cart_address');
-      maps = prefs.getString('cart_maps');
     });
   }
 
@@ -105,11 +105,10 @@ class _PaymentPageState extends State<PaymentPage> {
     if (name == null ||
         phone == null ||
         address == null ||
-        maps == null ||
         name!.isEmpty ||
         phone!.isEmpty ||
         address!.isEmpty ||
-        maps!.isEmpty) {
+        widget.mapLink.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Pembayaran Gagal, Data Masih Kosong'),
@@ -181,7 +180,7 @@ class _PaymentPageState extends State<PaymentPage> {
       "nama": name,
       "no_telp": phone,
       "alamat": address,
-      "maps_link": maps,
+      "maps_link": widget.mapLink,
       "qty": widget.total ~/ 12000,
       "total": widget.total,
       "status": "sedang diproses",
@@ -193,7 +192,7 @@ class _PaymentPageState extends State<PaymentPage> {
     var request = http.MultipartRequest(
         'POST',
         Uri.parse(
-            'http://10.178.180.83:8000/api/orders')); // Sesuaikan dengan URL API Anda
+            'http://192.168.228.82:8000/api/orders')); // Sesuaikan dengan URL API Anda
 
     // Menambahkan data ke dalam request.fields satu per satu
     request.fields['nama'] = requestBody['nama'] as String;
